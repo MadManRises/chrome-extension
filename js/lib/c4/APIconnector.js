@@ -23,8 +23,22 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
         suffix_getRegisteredPartners: 'getRegisteredPartners',
         numResults: 80
     };
+    var settings2 = {
+        base_url: "https://www.europeana.eu/api/v2/",
+        timeout: 10000,
+        logTimeout: 5000,
+        loggingLevel: 0,
+        cacheSize: 10,
+        suffix_recommend: 'search.json',
+        suffix_details: 'getDetails',
+        suffix_favicon: 'getPartnerFavIcon?partnerId=',
+        suffix_log: 'log/',
+        suffix_getRegisteredPartners: 'getRegisteredPartners',
+        numResults: 80
+    };
     peas_indist.init(settings.base_url);
     var xhr;
+    var xhr2;
     var sessionCache = [];
     var addToCache = function(element) {
         if (sessionCache.length === settings.cacheSize) {
@@ -121,6 +135,7 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
          * @param {APIconnector~onResponse} callback Callback function called on success or error. 
          */
         query: function(profile, callback) {
+            this.query2(profile, callback);
             if (!profile.loggingLevel) {
                 profile.loggingLevel = settings.loggingLevel;
             }
@@ -128,6 +143,7 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
             if (!profile.numResults) {
                 profile.numResults = settings.numResults;
             }
+            console.log({query : "1", profile : profile});
             if (xhr && xhr.readyState !== 4) {
                 xhr.abort();
             }
@@ -142,12 +158,96 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
             xhr.done(function(response) {
                 response['profile'] = profile;
                 response['faviconURL'] = settings.base_url + settings.suffix_favicon;
+                response.result = response.result.filter(function (item){
+                    return item.documentBadge.provider == "Europeana";
+                });
+                response.totalResults = response.result.length;
                 addToCache(response);
+                console.log({response : "1", data : response});
                 if (typeof callback !== 'undefined') {
-                    callback({status: 'success', data: response});
+                    //callback({status: 'success', data: response});
                 }
             });
             xhr.fail(function(jqXHR, textStatus, errorThrown) {
+                if (textStatus !== 'abort') {
+                    console.log(jqXHR);
+                    console.log(textStatus);
+                    console.log(errorThrown);
+                    if (typeof callback !== 'undefined') {
+                        //callback({status: 'error', data: textStatus});
+                    }
+                }
+            });
+        },
+        query2: function(profile, callback) {
+
+            var mainQueries = [];
+            var nonMainQueries = [];
+            profile.contextKeywords.forEach(function(keyword){
+                var queryString = "(" + keyword.text.split(" ").join(" AND ") + ")";
+                if (keyword.isMainTopic)
+                    mainQueries.push(queryString);
+                else
+                    nonMainQueries.push(queryString);
+            });
+
+            var request = {
+                wskey : "WGcVydrqW",
+                query : mainQueries.join(" AND ") + " AND (" + nonMainQueries.join(" OR ") + ")"
+            };
+            console.log({query : "2", profile : request});
+            if (xhr2 && xhr2.readyState !== 4) {
+                xhr2.abort();
+            }
+            xhr2 = $.ajax({
+                url: settings2.base_url + settings2.suffix_recommend,
+                data: request,
+                type: 'GET',
+                contentType: 'application/json; charset=UTF-8',
+                dataType: 'json',
+                timeout: settings.timeout
+            });
+            xhr2.done(function(itemList) {
+                console.log(itemList);
+                var response = {
+                    faviconURL: settings2.base_url + settings2.suffix_favicon,
+                    partnerResponseState: [
+                        {
+                            success: true,
+                            systemID: "Europeana"
+                        }
+                    ],
+                    profile: profile,
+                    provider: "federated",
+                    queryID: itemList.items.length > 0 ? itemList.items[0].requestNumber : 0,
+                    result: [],
+                    totalResults: itemList.itemsCount
+                };
+
+                itemList.items.forEach(function(item){
+                    response.result.push({
+                        date : item.year ? item.year[0] + "-01-01" : "unknown",
+                        documentBadge : {
+                            id : item.id,
+                            provider : "Europeana",
+                            uri : "http://europeana.eu/resolve/record" + item.id
+                        },
+                        generatingQuery : request.query,
+                        language : item.language[0],
+                        licence : item.rights[0],
+                        mediaType : item.type,
+                        title : item.title[0]
+                    });
+                });
+
+                addToCache(response);
+                console.log({response : "2", data : response});
+                if (typeof callback !== 'undefined') {
+                    callback({status: 'success', data: response});
+                }
+
+            });
+            xhr2.fail(function(jqXHR, textStatus, errorThrown) {
                 if (textStatus !== 'abort') {
                     console.log(jqXHR);
                     console.log(textStatus);

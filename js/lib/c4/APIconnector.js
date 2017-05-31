@@ -10,7 +10,7 @@
  * @param {Object} data Contains the response data. In the case of an error, it is the error message and in the case of success, it is the response returned from the federated recommender in the format described at {@link https://github.com/EEXCESS/eexcess/wiki/%5B21.09.2015%5D-Request-and-Response-format#response-format}. The profile that lead to this response is included in an additional attribute "profile".
  */
 define(["jquery", "peas/peas_indist"], function($, peas_indist) {
-    var settings = {
+    /*var settings = {
         base_url: "https://eexcess.joanneum.at/eexcess-privacy-proxy-issuer-1.0-SNAPSHOT/issuer/",
         timeout: 10000,
         logTimeout: 5000,
@@ -22,8 +22,8 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
         suffix_log: 'log/',
         suffix_getRegisteredPartners: 'getRegisteredPartners',
         numResults: 80
-    };
-    var settings2 = {
+    };*/
+    var settings = {
         base_url: "https://www.europeana.eu/api/v2/",
         timeout: 10000,
         logTimeout: 5000,
@@ -38,7 +38,6 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
     };
     peas_indist.init(settings.base_url);
     var xhr;
-    var xhr2;
     var sessionCache = [];
     var addToCache = function(element) {
         if (sessionCache.length === settings.cacheSize) {
@@ -51,7 +50,7 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
         this.toString = function() {
             return errorMsg;
         };
-    }
+    };
     /**
      * Complement the origin object with the name of the client and a user identifier;
      * 
@@ -116,7 +115,7 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
          * @param {String} config.suffix_recommend The query endpoint.
          * @param {String} config.suffix_details The endpoint for gathering details about response items.
          * @param {String} config.suffix_favicon The endpoint for gathering the favicon of a provider.
-         * @param {String} cnfig.suffix_log The endpoint for logging.
+         * @param {String} config.suffix_log The endpoint for logging.
          * @param {Object} config.origin The origin object for logging.
          */
         init: function(config) {
@@ -134,7 +133,7 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
          * @param {Object} profile The profile used to query. The format is described at {@link https://github.com/EEXCESS/eexcess/wiki/%5B21.09.2015%5D-Request-and-Response-format#query-format}
          * @param {APIconnector~onResponse} callback Callback function called on success or error. 
          */
-        query: function(profile, callback) {
+        /*query: function(profile, callback) {
             this.query2(profile, callback);
             if (!profile.loggingLevel) {
                 profile.loggingLevel = settings.loggingLevel;
@@ -143,7 +142,7 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
             if (!profile.numResults) {
                 profile.numResults = settings.numResults;
             }
-            console.log({query : "1", profile : profile});
+
             if (xhr && xhr.readyState !== 4) {
                 xhr.abort();
             }
@@ -178,8 +177,8 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
                     }
                 }
             });
-        },
-        query2: function(profile, callback) {
+        },*/
+        query: function(profile, callback) {
 
             var mainQueries = [];
             var nonMainQueries = [];
@@ -195,22 +194,21 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
                 wskey : "WGcVydrqW",
                 query : mainQueries.join(" AND ") + " AND (" + nonMainQueries.join(" OR ") + ")"
             };
-            console.log({query : "2", profile : request});
-            if (xhr2 && xhr2.readyState !== 4) {
-                xhr2.abort();
+
+            if (xhr && xhr.readyState !== 4) {
+                xhr.abort();
             }
-            xhr2 = $.ajax({
-                url: settings2.base_url + settings2.suffix_recommend,
+            xhr = $.ajax({
+                url: settings.base_url + settings.suffix_recommend,
                 data: request,
                 type: 'GET',
                 contentType: 'application/json; charset=UTF-8',
                 dataType: 'json',
                 timeout: settings.timeout
             });
-            xhr2.done(function(itemList) {
-                console.log(itemList);
+            xhr.done(function(itemList) {
                 var response = {
-                    faviconURL: settings2.base_url + settings2.suffix_favicon,
+                    faviconURL: settings.base_url + settings.suffix_favicon,
                     partnerResponseState: [
                         {
                             success: true,
@@ -238,20 +236,19 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
                         mediaType : item.type,
                         title : item.title[0]
                     });
+                    if (item.edmPreview) {
+                        response.result[response.result.length - 1].previewImage = item.edmPreview[0];
+                    }
                 });
 
                 addToCache(response);
-                console.log({response : "2", data : response});
                 if (typeof callback !== 'undefined') {
                     callback({status: 'success', data: response});
                 }
 
             });
-            xhr2.fail(function(jqXHR, textStatus, errorThrown) {
+            xhr.fail(function(jqXHR, textStatus, errorThrown) {
                 if (textStatus !== 'abort') {
-                    console.log(jqXHR);
-                    console.log(textStatus);
-                    console.log(errorThrown);
                     if (typeof callback !== 'undefined') {
                         callback({status: 'error', data: textStatus});
                     }
@@ -299,9 +296,6 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
             });
             xhr.fail(function(jqXHR, textStatus, errorThrown) {
                 if (textStatus !== 'abort') {
-                    console.log(jqXHR);
-                    console.log(textStatus);
-                    console.log(errorThrown);
                     if (typeof callback !== 'undefined') {
                         callback({status: 'error', data: textStatus});
                     }
@@ -393,9 +387,6 @@ define(["jquery", "peas/peas_indist"], function($, peas_indist) {
             });
             xhr.fail(function(jqXHR, textStatus, errorThrown) {
                 if (textStatus !== 'abort') {
-                    console.log(jqXHR);
-                    console.log(textStatus);
-                    console.log(errorThrown);
                     if (typeof callback !== 'undefined') {
                         callback({status: 'error', data: textStatus});
                     }
